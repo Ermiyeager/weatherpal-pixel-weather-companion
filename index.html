@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WeatherPal prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600;700&family=Press+Start+2P&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light;
+  --bg:#E6E4F2; --surface:#FBFAF7; --surface-2:#F1F0EC; --text:#191D2B; --muted:#5A5E74;
+  --line:#D3D0E4; --chip:#EEECF7; --chip-on:#191D2B; --chip-on-text:#F4F3F0; --focus:#756C9B;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --bg:#10121B; --surface:#191D2B; --surface-2:#20253A; --text:#F4F3F0; --muted:#A6AAC0;
+    --line:#2F3552; --chip:#232842; --chip-on:#B8B1E8; --chip-on-text:#191D2B; --focus:#B8B1E8;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#10121B; --surface:#191D2B; --surface-2:#20253A; --text:#F4F3F0; --muted:#A6AAC0;
+  --line:#2F3552; --chip:#232842; --chip-on:#B8B1E8; --chip-on-text:#191D2B; --focus:#B8B1E8;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.45;-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+
+.page{max-width:900px;margin:0 auto;padding:36px 20px 56px}
+.intro{margin:0 0 28px;max-width:60ch}
+.intro h1{font-family:"Press Start 2P",monospace;font-size:20px;line-height:1.5;margin:0 0 10px;letter-spacing:.02em}
+.intro p{margin:0;color:var(--muted);font-family:"Nunito Sans",system-ui,sans-serif}
+
+.layout{display:grid;grid-template-columns:360px minmax(0,1fr);gap:36px;align-items:start}
+.stage{position:sticky;top:calc(env(safe-area-inset-top,0px) + 20px)}
+@media (max-width:820px){
+  .layout{grid-template-columns:minmax(0,1fr);justify-items:center}
+  .stage{position:static}
+  .controls{width:100%;max-width:480px}
+}
+
+/* ---------- the companion widget ---------- */
+.pal{width:360px;max-width:100%;background:#191D2B;color:#F4F3F0;border:3px solid #A9C9F4;border-radius:16px;padding:9px;box-shadow:0 6px 0 #0B0D16,0 22px 40px rgba(25,29,43,.28)}
+.pal-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 3px 9px}
+.pal-name{font-family:"Press Start 2P",monospace;font-size:10px;color:#B8B1E8;letter-spacing:.04em}
+.pal-loc{display:block;font-size:12px;color:#A9C9F4;font-weight:700;margin-top:4px}
+.pal-btn{background:#262B40;border:2px solid #3A4160;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#F4F3F0;cursor:pointer}
+.pal-btn:hover{border-color:#A9C9F4}
+.scene-wrap{position:relative;border:3px solid #0B0D16;border-radius:8px;overflow:hidden;background:#0B0D16;cursor:default;line-height:0}
+.scene-wrap.poke{cursor:pointer}
+#scene{display:block;width:100%;height:auto;aspect-ratio:110/70;image-rendering:pixelated;image-rendering:crisp-edges}
+.bubble{position:absolute;max-width:44%;background:#F4F3F0;color:#191D2B;font:800 11.5px/1.3 "Nunito",sans-serif;padding:6px 8px;border:2px solid #191D2B;border-radius:4px;box-shadow:3px 3px 0 rgba(25,29,43,.55);transform:translateY(-50%);animation:pop .22s steps(3) both;pointer-events:none}
+.bubble::before{content:"";position:absolute;left:-8px;top:50%;margin-top:-4px;border:4px solid transparent;border-right:6px solid #191D2B}
+.bubble[hidden]{display:none}
+@keyframes pop{from{transform:translateY(-50%) scale(.6);opacity:0}to{transform:translateY(-50%) scale(1);opacity:1}}
+
+.now{display:flex;align-items:flex-end;gap:14px;padding:12px 4px 8px}
+.temp{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace;font-weight:800;font-size:46px;line-height:1;letter-spacing:-.03em}
+.temp small{font-size:18px;vertical-align:top;margin-left:2px;color:#A9C9F4}
+.cond{padding-bottom:3px;font-family:"Nunito Sans",sans-serif}
+.cond-label{font-family:"Nunito",sans-serif;font-weight:900;font-size:17px;line-height:1.15}
+.sub{font-size:12.5px;color:#C7CBE0}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:2px 0 8px}
+.stat{background:#20253A;border-radius:8px;padding:6px 7px}
+.stat span{display:block;font-size:10.5px;color:#A6AAC0;font-weight:700}
+.stat b{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:13px;font-weight:800}
+.outfit{font-size:12px;color:#C7CBE0;padding:0 4px 4px}
+.outfit b{color:#FFD45C}
+.more{border-top:2px dashed #2F3552;margin-top:6px;padding:10px 2px 2px}
+.more[hidden]{display:none}
+.hours{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;text-align:center}
+.hour{background:#20253A;border-radius:8px;padding:6px 2px}
+.hour .t{font-size:10.5px;color:#A6AAC0;font-weight:700}
+.hour canvas{width:28px;height:28px;image-rendering:pixelated;display:block;margin:3px auto}
+.hour b{font-family:"JetBrains Mono",monospace;font-size:12px}
+.hour .p{display:block;font-size:10px;color:#A9C9F4;font-weight:700}
+.tomorrow{font-size:12.5px;color:#C7CBE0;margin:9px 2px 0}
+.tomorrow b{color:#F4F3F0}
+.pal-foot{display:flex;justify-content:space-between;font-size:11px;color:#7E83A0;padding:6px 4px 1px}
+.stage-note{font-size:13px;color:var(--muted);text-align:center;margin:14px 0 0}
+
+/* ---------- controls ---------- */
+.controls{background:var(--surface);border:1.5px solid var(--line);border-radius:18px;padding:6px 22px 22px}
+.group{padding:16px 0 4px;border-bottom:1.5px dashed var(--line)}
+.group:last-of-type{border-bottom:0}
+.group h2{font-size:15px;font-weight:900;margin:0 0 3px}
+.group .hint{font-size:13px;color:var(--muted);margin:0 0 10px}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}
+.chip{background:var(--chip);border:1.5px solid var(--line);border-radius:999px;padding:6px 13px;font-weight:800;font-size:13.5px;cursor:pointer}
+.chip:hover{border-color:var(--focus)}
+.chip[aria-pressed="true"]{background:var(--chip-on);color:var(--chip-on-text);border-color:var(--chip-on)}
+.code{font-size:13px;color:var(--muted);margin:-2px 0 12px}
+.code code{font-family:"JetBrains Mono",monospace;font-size:12.5px;background:var(--surface-2);padding:1px 6px;border-radius:5px;color:var(--text)}
+.row{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.row > label,.row > .lbl{width:84px;flex:none;font-size:13.5px;font-weight:800}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:28px;height:28px;border-radius:8px;border:2px solid rgba(25,29,43,.25);cursor:pointer;padding:0}
+.sw[aria-pressed="true"]{outline:3px solid var(--text);outline-offset:2px}
+.name-input{flex:1;min-width:0;max-width:200px;background:var(--surface-2);border:1.5px solid var(--line);border-radius:10px;padding:7px 10px;font-weight:700}
+.loc-row .name-input{max-width:none}
+.switch{display:flex;align-items:center;gap:10px;background:none;border:0;padding:0;cursor:pointer;font-weight:800;font-size:13.5px;text-align:left}
+.switch .track{width:40px;height:24px;border-radius:999px;background:var(--line);position:relative;flex:none;transition:background .15s}
+.switch .track::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+.switch[aria-checked="true"] .track{background:#756C9B}
+.switch[aria-checked="true"] .track::after{transform:translateX(16px)}
+.switch small{display:block;font-weight:600;color:var(--muted);font-size:12.5px}
+.note{font-size:13px;color:var(--muted);margin:16px 0 0;font-family:"Nunito Sans",sans-serif}
+@media (prefers-reduced-motion: reduce){.bubble{animation:none}.switch .track,.switch .track::after{transition:none}}
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="intro">
+    <h1>WeatherPal</h1>
+    <p>A clickable prototype of the compact desktop companion. Switch the weather and time of day to see the outfit engine, environments and moods react, then click the character.</p>
+  </header>
+
+  <div class="layout">
+    <div class="stage">
+      <section class="pal" aria-label="WeatherPal companion widget">
+        <div class="pal-top">
+          <div>
+            <span class="pal-name" id="palName">PIP</span>
+            <span class="pal-loc" id="palLoc">Addis Ababa</span>
+          </div>
+          <button class="pal-btn" id="detailsBtn" aria-expanded="false" aria-controls="more">Show forecast</button>
+        </div>
+
+        <div class="scene-wrap" id="sceneWrap" tabindex="0" role="button" aria-label="Weather scene">
+          <canvas id="scene" width="110" height="70"></canvas>
+          <div class="bubble" id="bubble" role="status" aria-live="polite" hidden></div>
+        </div>
+
+        <div class="now">
+          <div class="temp"><span id="temp">15</span><small id="deg">°C</small></div>
+          <div class="cond">
+            <div class="cond-label" id="cond">Rain</div>
+            <div class="sub" id="feels">Feels like 13°</div>
+            <div class="sub" id="hilo">High 16°, low 12°</div>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat"><span>Humidity</span><b id="hum">88%</b></div>
+          <div class="stat"><span>Wind</span><b id="wind">18</b></div>
+          <div class="stat"><span>UV</span><b id="uv">1</b></div>
+          <div class="stat"><span>Mood</span><b id="mood" style="font-family:Nunito,sans-serif;font-size:12.5px">Relaxed</b></div>
+        </div>
+        <div class="outfit" id="outfit"></div>
+
+        <div class="more" id="more" hidden>
+          <div class="hours" id="hours"></div>
+          <p class="tomorrow" id="tomorrow"></p>
+        </div>
+
+        <div class="pal-foot"><span id="updated">Loading live weather…</span><span>Weather by Open‑Meteo</span></div>
+      </section>
+      <p class="stage-note">Click or press Enter on the scene to interact.</p>
+    </div>
+
+    <div class="controls">
+      <div class="group">
+        <h2>Weather</h2>
+        <p class="hint">Live follows the real weather in your city. Pick any other state to preview it.</p>
+        <div class="chips" id="weatherChips"></div>
+        <p class="code">Maps from <code id="codeVal">weather_code 63</code> to the <b id="codeState">rain</b> state.</p>
+        <div class="row loc-row">
+          <label for="cityInput">City</label>
+          <input class="name-input" id="cityInput" placeholder="Search a city" autocomplete="off">
+          <button type="button" class="chip" id="cityBtn">Change city</button>
+        </div>
+        <p class="code" id="cityMsg" role="status"></p>
+      </div>
+
+      <div class="group">
+        <h2>Time of day</h2>
+        <p class="hint">In live mode this follows your local sunrise and sunset.</p>
+        <div class="chips" id="timeChips"></div>
+      </div>
+
+      <div class="group">
+        <h2>Character Studio</h2>
+        <p class="hint">Layers stack on one base sprite, so every combination works.</p>
+        <div class="row"><label for="nameInput">Name</label><input class="name-input" id="nameInput" maxlength="10" autocomplete="off"></div>
+        <div class="row"><span class="lbl">Skin</span><div class="swatches" id="skinSw"></div></div>
+        <div class="row"><span class="lbl">Hair</span><div class="chips" id="hairStyle" style="margin:0"></div></div>
+        <div class="row"><span class="lbl">Hair color</span><div class="swatches" id="hairSw"></div></div>
+        <div class="row"><span class="lbl">Top</span><div class="swatches" id="topSw"></div></div>
+        <div class="row">
+          <button class="switch" id="autoSwitch" role="switch" aria-checked="true">
+            <span class="track"></span>
+            <span>Weather outfits<small>Off keeps your chosen look in every weather.</small></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>Display</h2>
+        <div class="row" style="margin-top:8px"><span class="lbl">Units</span><div class="chips" id="unitChips" style="margin:0"></div></div>
+        <div class="row">
+          <button class="switch" id="bubbleSwitch" role="switch" aria-checked="true">
+            <span class="track"></span><span>Speech bubbles</span>
+          </button>
+        </div>
+      </div>
+
+      <p class="note">Live mode loads real conditions and refreshes every 15 minutes, while preview states use fixed sample values. The Flutter build will use the same Open‑Meteo data, and your choices on this page are remembered in this browser.</p>
+    </div>
+  </div>
+</main>
+
+<script>
+(() => {
+'use strict';
+const W = 110, H = 70, GROUND = 56;
+const cv = document.getElementById('scene');
+const sceneCtx = cv.getContext('2d');
+let G = sceneCtx;
+const RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const K = '#191D2B';
+const SKINS = ['#F8DCC0', '#EBBE96', '#C98E66', '#8E5B3C'];
+const HAIRS = ['#4A3226', '#26222F', '#D6A15A', '#B4513A', '#9A8FD6'];
+const TOPS  = ['#A8D8B0', '#F2A9B8', '#A9C9F4', '#B8B1E8', '#FFD45C'];
+const PANTS = '#3E4766', SHOES = '#6B4436';
+
+const WEATHER = {
+  clear:  {label:'Clear',         code:0,  t:26, f:27, h:38, w:9,  uv:8, hi:28, lo:15, rain:0},
+  partly: {label:'Partly cloudy', code:2,  t:22, f:22, h:52, w:12, uv:5, hi:24, lo:14, rain:10},
+  cloudy: {label:'Cloudy',        code:3,  t:18, f:17, h:68, w:16, uv:2, hi:19, lo:13, rain:20},
+  rain:   {label:'Rain',          code:63, t:15, f:13, h:88, w:18, uv:1, hi:16, lo:12, rain:85},
+  storm:  {label:'Thunderstorm',  code:95, t:17, f:15, h:92, w:34, uv:0, hi:19, lo:14, rain:95},
+  snow:   {label:'Snow',          code:73, t:-2, f:-6, h:82, w:14, uv:1, hi:0,  lo:-5, rain:70},
+  fog:    {label:'Fog',           code:45, t:9,  f:7,  h:97, w:4,  uv:1, hi:13, lo:6,  rain:15}
+};
+const TIMES = {
+  morning:{label:'Morning',   dt:-3, uv:.4, hour:8},
+  day:    {label:'Afternoon', dt:0,  uv:1,  hour:14},
+  sunset: {label:'Sunset',    dt:-1, uv:.2, hour:18},
+  night:  {label:'Night',     dt:-5, uv:0,  hour:22}
+};
+const MOODS = {clear:'Happy', partly:'Happy', cloudy:'Relaxed', rain:'Relaxed', storm:'Nervous', snow:'Excited', fog:'Sleepy'};
+const LINES = {
+  clear:  ['Looks like a beautiful day!', 'Perfect weather for a walk.', 'Don’t forget sunscreen!'],
+  partly: ['A little sun, a little cloud.', 'Nice and mild out there.'],
+  cloudy: ['Cozy gray kind of day.', 'Maybe bring a light jacket?'],
+  rain:   ['Don’t forget your umbrella!', 'Puddle season!', 'I love the sound of rain.'],
+  storm:  ['Whoa, did you hear that?', 'Better stay inside today.'],
+  snow:   ['Snow! Real snow!', 'It’s getting chilly outside!', 'Bundle up warm!'],
+  fog:    ['I can’t see a thing…', 'Spooky and quiet out here.'],
+  night:  ['Good night! See you tomorrow.', 'So sleepy…'],
+  morning:['Good morning! Time to stretch.'],
+  sunset: ['What a sunset!', 'Golden hour, my favorite.']
+};
+const NEXT = {
+  clear:['clear','clear','partly','clear','clear','partly'],
+  partly:['partly','cloudy','partly','clear','partly','partly'],
+  cloudy:['cloudy','cloudy','partly','cloudy','rain','cloudy'],
+  rain:['rain','rain','storm','rain','cloudy','cloudy'],
+  storm:['storm','storm','rain','rain','cloudy','cloudy'],
+  snow:['snow','snow','snow','cloudy','snow','cloudy'],
+  fog:['fog','fog','cloudy','partly','partly','clear']
+};
+const TOMORROW = {clear:'partly', partly:'clear', cloudy:'rain', rain:'cloudy', storm:'rain', snow:'snow', fog:'partly'};
+
+/* ---------- persistence ---------- */
+const KEY = 'weatherpal-proto-v1';
+const DEF = {weather:'clear', time:'day', live:true, loc:{name:'Addis Ababa', country:'Ethiopia', lat:9.025, lon:38.7469}, unit:'C', auto:true, bubbles:true, expanded:false,
+             app:{name:'Pip', skin:0, hair:0, hairStyle:'short', top:0}};
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function load(){
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return clone(DEF);
+    const o = JSON.parse(raw);
+    const s = Object.assign(clone(DEF), o, {app:Object.assign(clone(DEF.app), o.app || {})});
+    if (!WEATHER[s.weather]) s.weather = DEF.weather;
+    if (!TIMES[s.time]) s.time = DEF.time;
+    return s;
+  } catch (e) { return clone(DEF); }
+}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+let S = load();
+
+/* ---------- live weather (Open-Meteo) ---------- */
+const CACHE_KEY = 'weatherpal-cache-v1';
+let LIVE = null, liveStatus = 'loading', retryDelay = 5000, refreshTimer = 0;
+try {
+  const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+  if (c && c.loc && c.loc.lat === S.loc.lat && c.loc.lon === S.loc.lon) { LIVE = c; liveStatus = 'cached'; }
+} catch (e) {}
+function codeToState(c){
+  if (c <= 1) return 'clear';
+  if (c === 2) return 'partly';
+  if (c === 3) return 'cloudy';
+  if (c === 45 || c === 48) return 'fog';
+  if ((c >= 71 && c <= 77) || c === 85 || c === 86) return 'snow';
+  if (c >= 95) return 'storm';
+  return 'rain';
+}
+function timeOfDay(nowIso, sunrise, sunset){
+  const n = Date.parse(nowIso), r = Date.parse(sunrise), s = Date.parse(sunset);
+  if (n < r - 30 * 60e3 || n > s + 40 * 60e3) return 'night';
+  if (n < r + 2.5 * 3600e3) return 'morning';
+  if (n > s - 75 * 60e3) return 'sunset';
+  return 'day';
+}
+async function fetchLive(){
+  const {lat, lon} = S.loc;
+  const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
+    '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,uv_index,is_day' +
+    '&hourly=temperature_2m,precipitation_probability,weather_code,is_day' +
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset' +
+    '&timezone=auto&forecast_days=2';
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+    const cur = d.current, hr = d.hourly;
+    let idx = hr.time.indexOf(cur.time.slice(0, 13) + ':00');
+    if (idx < 0) idx = 0;
+    const hours = [];
+    for (let i = 0; i < 6 && idx + i < hr.time.length; i++) {
+      const j = idx + i;
+      hours.push({time: hr.time[j], t: hr.temperature_2m[j], p: hr.precipitation_probability[j] ?? 0, code: hr.weather_code[j], day: hr.is_day[j]});
+    }
+    LIVE = {
+      loc: {lat: S.loc.lat, lon: S.loc.lon}, fetched: Date.now(), localTime: cur.time,
+      code: cur.weather_code, t: cur.temperature_2m, f: cur.apparent_temperature, h: cur.relative_humidity_2m,
+      w: cur.wind_speed_10m, uv: cur.uv_index ?? 0,
+      hi: d.daily.temperature_2m_max[0], lo: d.daily.temperature_2m_min[0],
+      tod: timeOfDay(cur.time, d.daily.sunrise[0], d.daily.sunset[0]),
+      hours,
+      tomorrow: {code: d.daily.weather_code[1], hi: d.daily.temperature_2m_max[1], lo: d.daily.temperature_2m_min[1]}
+    };
+    liveStatus = 'ok'; retryDelay = 5000;
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(LIVE)); } catch (e) {}
+    applyLive(true);
+    scheduleRefresh(15 * 60e3);
+  } catch (err) {
+    console.warn('Live weather failed:', err);
+    liveStatus = LIVE ? 'stale' : 'error';
+    renderUI();
+    scheduleRefresh(retryDelay);
+    retryDelay = Math.min(retryDelay * 2, 5 * 60e3);
+  }
+}
+function scheduleRefresh(ms){ clearTimeout(refreshTimer); refreshTimer = setTimeout(fetchLive, ms); }
+function applyLive(talk){
+  if (!S.live || !LIVE) { renderUI(); return; }
+  const st = codeToState(LIVE.code);
+  const changed = st !== S.weather || LIVE.tod !== S.time;
+  if (changed) {
+    snapshot(); S.weather = st; S.time = LIVE.tod; save(); resetParticles(); poof();
+    A.nextFlash = performance.now() + 1200; A.nextAmbient = performance.now() + 2500;
+  }
+  renderUI();
+  if (changed && talk) say(S.time === 'night' ? LINES.night[0] : LINES[S.weather][0]);
+}
+function updatedText(){
+  if (!S.live) return 'Preview mode';
+  if (!LIVE) return liveStatus === 'error' ? 'Can’t reach the weather service, retrying' : 'Loading live weather…';
+  const hhmm = LIVE.localTime.slice(11, 16);
+  if (liveStatus === 'stale') return 'Offline, saved data from ' + hhmm;
+  if (liveStatus === 'cached') return 'Saved data from ' + hhmm;
+  return 'Updated ' + hhmm + ' local time';
+}
+
+/* ---------- pixel helpers ---------- */
+function px(x, y, c){ x = Math.round(x); y = Math.round(y); if (c === null) { G.clearRect(x, y, 1, 1); return; } G.fillStyle = c; G.fillRect(x, y, 1, 1); }
+function rect(x, y, w, h, c){ G.fillStyle = c; G.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); }
+function circle(cx, cy, r, c){
+  cx = Math.round(cx); cy = Math.round(cy);
+  const rr = r * r + r * .6, n = Math.ceil(r);
+  for (let dy = -n; dy <= n; dy++) for (let dx = -n; dx <= n; dx++) if (dx*dx + dy*dy <= rr) px(cx + dx, cy + dy, c);
+}
+function line(x0, y0, x1, y1, c){
+  x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+  const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1, dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  for (let i = 0; i < 400; i++) {
+    px(x0, y0, c);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+  }
+}
+function shade(hex, amt){
+  const n = parseInt(hex.slice(1), 16);
+  const f = v => Math.max(0, Math.min(255, Math.round(amt < 0 ? v * (1 + amt) : v + (255 - v) * amt)));
+  return '#' + [n >> 16, n >> 8 & 255, n & 255].map(f).map(v => v.toString(16).padStart(2, '0')).join('');
+}
+let seed = 7;
+function rnd(){ seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+const STARS = Array.from({length:26}, () => ({x: Math.floor(rnd() * W), y: Math.floor(rnd() * 34), p: rnd() * 10}));
+
+/* ---------- character sprite (16 x 24, layered) ---------- */
+const BODY = [
+  '....KKKKKKKK....',
+  '...KHHHHHHHHK...',
+  '..KHHHHHHHHHHK..',
+  '.KHHHHHHHHHHHHK.',
+  '.KHHSSSSSSSSHHK.',
+  '.KHSSSSSSSSSSHK.',
+  '.KHSSSSSSSSSSHK.',
+  '.KHSSSSSSSSSSHK.',
+  '.KHSCSSSSSSCSHK.',
+  '..KSSSSSSSSSSK..',
+  '...KSSSSSSSSK...',
+  '....KKKKKKKK....',
+  '....KTTTTTTK....',
+  '...KTTTTTTTTK...',
+  '..KTTKTTTTKTTK..',
+  '..KTTKTTTTKTTK..',
+  '..KSSKTTTTKSSK..',
+  '...KKKTTTTKKK...',
+  '....KPPPPPPK....',
+  '....KPPKKPPK....',
+  '....KPPKKPPK....',
+  '....KBBKKBBK....',
+  '...KBBBKKBBBK...',
+  '...KKKKKKKKKK...'
+];
+
+/* ---------- outfit engine: weather state -> look ---------- */
+function outfit(){
+  const w = S.weather, t = S.time, a = S.app;
+  const o = {top:TOPS[a.top], style:'tee', glasses:false, scarf:false, beanie:false, hood:false, umbrella:null,
+             expr: t === 'night' ? 'sleepy' : ({clear:'happy', partly:'happy', cloudy:'calm', rain:'calm', storm:'nervous', snow:'excited', fog:'sleepy'})[w],
+             desc:[]};
+  if (!S.auto) { o.desc = ['your own look']; return o; }
+  if (w === 'clear') { o.desc = ['tee']; if (t === 'day' || t === 'morning') { o.glasses = true; o.desc.push('sunglasses'); } }
+  else if (w === 'partly' || w === 'cloudy') o.desc = ['casual tee'];
+  else if (w === 'rain')  { Object.assign(o, {style:'raincoat', top:'#FFD45C', hood:true, umbrella:'#F2A9B8'}); o.desc = ['raincoat', 'umbrella']; }
+  else if (w === 'storm') { Object.assign(o, {style:'raincoat', top:'#FFD45C', hood:true, umbrella:'#B8B1E8'}); o.desc = ['raincoat', 'umbrella']; }
+  else if (w === 'snow')  { Object.assign(o, {style:'coat', top:'#6F7FB0', scarf:true, beanie:true}); o.desc = ['winter coat', 'scarf', 'beanie']; }
+  else if (w === 'fog')   { Object.assign(o, {style:'hoodie', hood:true}); o.desc = ['hoodie']; }
+  if (t === 'night' && (w === 'clear' || w === 'partly' || w === 'cloudy')) { Object.assign(o, {style:'pajama', top:'#B8B1E8', glasses:false}); o.desc = ['pajamas']; }
+  return o;
+}
+
+/* ---------- animation state ---------- */
+const CHAR_X = 34, FEET = 59;
+const A = {act:null, start:0, dur:0, splashed:false, blinkUntil:0, nextBlink:0, surpriseUntil:0,
+           nextAmbient:0, nextBubble:0, nextFlash:0, flashUntil:0, bolt:null, nextZ:0};
+let umb = null;          // umbrella bounds this frame
+let fx = [];             // short-lived pixels (splashes, poofs, z's)
+let drops = [], flakes = [], motes = [], fogs = [], streaks = [];
+let snowDepth = 0;
+const prev = document.createElement('canvas'); prev.width = W; prev.height = H;
+let fadeStart = -1;
+
+function doAct(name){
+  if (RM && name !== 'wave') return;
+  A.act = name; A.start = performance.now(); A.splashed = false;
+  A.dur = name === 'jump' ? 650 : name === 'wave' ? 1300 : name === 'shiver' ? 900 : 600;
+}
+
+function drawChar(now, look){
+  const a = S.app;
+  let dx = 0, dy = 0, waving = false;
+  if (A.act) {
+    const p = (now - A.start) / A.dur;
+    if (p >= 1) {
+      if (A.act === 'jump' && (S.weather === 'rain' || S.weather === 'storm')) splash(CHAR_X + 8, FEET, 8);
+      A.act = null;
+    } else if (A.act === 'jump') dy = -Math.round(Math.sin(p * Math.PI) * 7);
+    else if (A.act === 'shiver') dx = (Math.floor(now / 70) % 2);
+    else if (A.act === 'wave') waving = true;
+  }
+  const tx = CHAR_X + dx, ty = FEET - 24 + dy;
+  const bob = (Math.floor(now / 650) % 2) && !A.act ? 1 : 0;
+  const skin = SKINS[a.skin] || SKINS[0], hair = HAIRS[a.hair] || HAIRS[0];
+  const hoodCol = look.top, beanieCol = '#B8B1E8';
+  const expr = now < A.surpriseUntil ? 'surprised' : look.expr;
+
+  // back layers
+  if (look.hood) { rect(tx, ty + 4 + bob, 16, 10, K); rect(tx + 1, ty + 4 + bob, 14, 9, hoodCol); }
+  else if (a.hairStyle === 'long') { rect(tx, ty + 4 + bob, 16, 13, K); rect(tx + 1, ty + 4 + bob, 14, 12, hair); }
+  if (a.hairStyle === 'buns' && !look.hood && !look.beanie) {
+    circle(tx + 3, ty + 1 + bob, 2.6, K); circle(tx + 3, ty + 1 + bob, 1.6, hair);
+    circle(tx + 12, ty + 1 + bob, 2.6, K); circle(tx + 12, ty + 1 + bob, 1.6, hair);
+  }
+
+  // base layered sprite
+  const topDk = shade(look.top, -.18);
+  for (let r = 0; r < 24; r++) {
+    const row = BODY[r], yy = ty + r + (r < 12 ? bob : 0);
+    for (let c = 0; c < 16; c++) {
+      const ch = row[c];
+      if (ch === '.') continue;
+      let col = K;
+      if (ch === 'S') col = skin;
+      else if (ch === 'C') col = '#F2A9B8';
+      else if (ch === 'P') col = PANTS;
+      else if (ch === 'B') col = SHOES;
+      else if (ch === 'T') col = (look.style === 'pajama' && r % 2) ? topDk : look.top;
+      else if (ch === 'H') {
+        col = hair;
+        if (look.beanie && r >= 1 && r <= 3) col = r === 3 ? '#F4F3F0' : beanieCol;
+        else if (look.hood && r <= 8 && !(r === 3 && c >= 4 && c <= 11)) col = hoodCol;
+      }
+      px(tx + c, yy, col);
+    }
+  }
+  if (look.beanie) { rect(tx + 7, ty - 1 + bob, 2, 1, '#F4F3F0'); }
+
+  // clothing details
+  const dk = shade(look.top, -.35);
+  if (look.style === 'raincoat') { px(tx + 7, ty + 13, dk); px(tx + 7, ty + 15, dk); px(tx + 8, ty + 12, dk); }
+  if (look.style === 'coat') { rect(tx + 7, ty + 12, 1, 6, dk); px(tx + 8, ty + 14, '#F4F3F0'); }
+  if (look.style === 'hoodie') { rect(tx + 6, ty + 15, 4, 2, shade(look.top, -.2)); px(tx + 6, ty + 12, '#F4F3F0'); px(tx + 9, ty + 12, '#F4F3F0'); }
+  if (look.style === 'tee') px(tx + 9, ty + 14, '#F4F3F0');
+
+  // face
+  const fy = ty + bob, e = (x, y, c) => px(tx + x, fy + y, c || K);
+  const blink = now < A.blinkUntil;
+  if (!look.glasses) {
+    if (blink && expr !== 'sleepy') { e(4,7); e(5,7); e(10,7); e(11,7); }
+    else if (expr === 'sleepy') { e(4,7); e(5,7); e(10,7); e(11,7); }
+    else if (expr === 'excited') { e(4,7); e(5,6); e(6,7); e(9,7); e(10,6); e(11,7); }
+    else if (expr === 'surprised') { e(5,5); e(5,6); e(5,7); e(10,5); e(10,6); e(10,7); }
+    else { e(5,6); e(5,7); e(10,6); e(10,7); }
+  } else {
+    rect(tx + 3, fy + 6, 4, 2, '#2A2E44'); rect(tx + 9, fy + 6, 4, 2, '#2A2E44'); rect(tx + 7, fy + 6, 2, 1, K);
+    e(4, 6, '#A9C9F4'); e(10, 6, '#A9C9F4');
+  }
+  if (expr === 'happy' || expr === 'excited') { e(6,8); e(7,9); e(8,9); e(9,8); }
+  else if (expr === 'surprised') { e(7,9); e(8,9); e(7,10); e(8,10); }
+  else if (expr === 'nervous') { e(6,9); e(7,9); e(8,9); e(9,9); e(13,5,'#A9C9F4'); e(13,6,'#A9C9F4'); }
+  else if (expr === 'sleepy') { e(8,9); }
+  else { e(7,9); e(8,9); }
+
+  if (look.scarf) {
+    rect(tx + 4, ty + 11, 8, 2, '#F2A9B8'); px(tx + 6, ty + 11, '#E07D92'); px(tx + 9, ty + 12, '#E07D92');
+    rect(tx + 9, ty + 13, 2, 3, '#F2A9B8'); rect(tx + 9, ty + 16, 2, 1, '#E07D92');
+  }
+
+  // raised arm (wave / catch / stretch)
+  if (waving) {
+    const f = Math.floor(now / 180) % 2;
+    rect(tx + 3, ty + 16, 2, 1, look.top);
+    rect(tx - 1 + f, ty + 8, 4, 4, K); rect(tx + f, ty + 9, 2, 2, skin);
+    rect(tx + 1, ty + 12, 3, 3, K); rect(tx + 2, ty + 12, 2, 2, look.top);
+  }
+
+  // umbrella (held in the right hand, in front)
+  umb = null;
+  if (look.umbrella) {
+    const cx = tx + 15, uy = ty - 12, col = look.umbrella, udk = shade(col, -.3), ult = shade(col, .4);
+    rect(cx - 1, uy - 2, 2, 1, K);
+    rect(cx - 4, uy - 1, 8, 1, K);
+    [8, 14, 18, 20, 22].forEach((w, r) => {
+      const x0 = cx - w / 2;
+      rect(x0, uy + r, w, 1, col);
+      px(x0, uy + r, K); px(x0 + w - 1, uy + r, K);
+      px(cx - 1, uy + r, udk); px(x0 + Math.floor(w / 4), uy + r, udk); px(x0 + Math.floor(3 * w / 4), uy + r, udk);
+      if (r > 0 && r < 3) px(x0 + 2, uy + r, ult);
+    });
+    for (let i = 0; i < 22; i++) { const m = i % 4; if (m === 1 || m === 2) px(cx - 11 + i, uy + 5, udk); }
+    for (let y = uy + 5; y <= ty + 14; y++) px(cx, y, '#3A3550');
+    px(cx - 1, ty + 15, '#3A3550');
+    rect(tx + 11, ty + 16, 2, 1, skin);
+    umb = {x0: cx - 11, x1: cx + 10, y0: uy - 1, y1: uy + 5};
+  }
+
+  // sleepy z's
+  if (expr === 'sleepy' && now > A.nextZ && !RM) {
+    fx.push({x: tx + 15, y: ty + 2, vx: 3, vy: -5, life: 1.8, max: 1.8, kind: 'z', col: '#F4F3F0'});
+    A.nextZ = now + 1100;
+  }
+  return {tx, ty};
+}
+
+/* ---------- environment ---------- */
+const SKY = {
+  clear:['#6FA8EC','#86B8F0','#A9C9F4','#CBE0F8'], partly:['#7DAEE8','#94BEF0','#B3D0F4','#D3E4F8'],
+  cloudy:['#97A5BA','#A8B4C6','#B9C3D2','#CBD3DE'], rain:['#5F7590','#6E86A2','#829DBB','#95AEC8'],
+  storm:['#35304F','#433D66','#544D7C','#6C6494'], snow:['#B5C9DE','#C6D7E9','#D7E4F1','#E8F1FA'],
+  fog:['#A6ADB6','#B5BCC4','#C5CAD0','#D4D8DC']
+};
+const SKY_NIGHT = ['#0D101D','#131829','#191D2B','#262D48'];
+const SKY_SUNSET = ['#4B3F72','#8E6A9E','#F2A9B8','#FFCF9A'];
+const SKY_MORNING = ['#8FB4E8','#B4C6EE','#F2CDD6','#FFE3C2'];
+const CLOUDS = {
+  clear:{n:1, c:'#F4F3F0', s:'#D3DEEC', v:2}, partly:{n:2, c:'#F4F3F0', s:'#CFD9E8', v:3},
+  cloudy:{n:4, c:'#D5D9E2', s:'#A8B0C0', v:3}, rain:{n:4, c:'#7E8CA3', s:'#5F6C82', v:5},
+  storm:{n:5, c:'#4E4870', s:'#38334F', v:8}, snow:{n:3, c:'#E8EEF5', s:'#C2CCDA', v:2}, fog:{n:2, c:'#C9CDD3', s:'#B0B6BE', v:1}
+};
+const HILLS = {
+  grass:['#9CC7A6','#7FB68E'], rain:['#6E8F86','#5E8077'], storm:['#4B5670','#3D4760'],
+  snow:['#CFDDEB','#E0EAF4'], fog:['#B5BFC0','#A9B5B3']
+};
+function hillSet(){ const w = S.weather; return HILLS[w] || HILLS.grass; }
+
+function drawSky(cols){
+  const bh = Math.ceil(GROUND / cols.length);
+  cols.forEach((c, i) => rect(0, i * bh, W, bh, c));
+  for (let i = 1; i < cols.length; i++) for (let x = 0; x < W; x += 2) { px(x, i * bh - 1, cols[i]); px(x + 1, i * bh, cols[i - 1]); }
+}
+function sun(cx, cy, now){
+  circle(cx, cy, 7.4, '#FFB84C'); circle(cx, cy, 6.2, '#FFD45C'); circle(cx - 2, cy - 2, 2.2, '#FFF1B8');
+  const L = 2 + (Math.floor(now / 500) % 2);
+  [[0,-1],[0,1],[-1,0],[1,0]].forEach(([a, b]) => { for (let i = 0; i < L; i++) px(cx + a * (10 + i), cy + b * (10 + i), '#FFD45C'); });
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a, b]) => { px(cx + a * 8, cy + b * 8, '#FFD45C'); });
+}
+function moon(cx, cy){
+  circle(cx, cy, 5.2, '#F4F3F0'); px(cx - 2, cy - 1, '#D9D6EA'); px(cx + 1, cy + 2, '#D9D6EA'); px(cx + 2, cy - 2, '#D9D6EA');
+}
+function cloudBlob(x, y, s, c, sh){
+  const parts = [[0,0,4],[5,-2,5],[11,0,4],[15,1,3]];
+  parts.forEach(([dx, dy, r]) => circle(x + dx * s, y + dy * s + 1, r * s, sh));
+  parts.forEach(([dx, dy, r]) => circle(x + dx * s, y + dy * s, r * s, c));
+  rect(x - 3 * s, y + 2 * s, 21 * s, 2, sh);
+}
+function tree(now){
+  const w = S.weather, sway = (w === 'storm' || w === 'cloudy' || w === 'rain') ? Math.round(Math.sin(now / 600)) : 0;
+  rect(90, 44, 3, 13, '#6B4436'); px(90, 50, '#58372B');
+  const dark = w === 'storm' ? '#3E5E4C' : w === 'fog' ? '#7D978A' : '#5E9A6C';
+  const lite = w === 'storm' ? '#4F7560' : w === 'fog' ? '#93AB9D' : '#7FBF8C';
+  circle(91 + sway, 38, 6.5, K); circle(86 + sway, 42, 4.5, K); circle(96 + sway, 42, 4.5, K);
+  circle(91 + sway, 38, 5.5, dark); circle(86 + sway, 42, 3.6, dark); circle(96 + sway, 42, 3.6, dark);
+  circle(89 + sway, 36, 2.4, lite);
+  if (w === 'snow') { rect(87 + sway, 32, 8, 2, '#F4F8FC'); rect(83 + sway, 39, 4, 1, '#F4F8FC'); rect(95 + sway, 39, 4, 1, '#F4F8FC'); }
+}
+function ground(now){
+  const w = S.weather;
+  const [far, near] = hillSet();
+  for (let x = 0; x < W; x++) {
+    const h1 = 46 + Math.round(Math.sin(x / 11) * 2 + Math.sin(x / 5 + 2));
+    rect(x, h1, 1, GROUND - h1, far);
+    const h2 = 51 + Math.round(Math.sin(x / 8 + 1) * 1.6);
+    rect(x, h2, 1, GROUND - h2, near);
+  }
+  tree(now);
+  if (w === 'snow') {
+    rect(0, GROUND, W, H - GROUND, '#DCE7F3'); rect(0, GROUND, W, 1, '#F4F8FC');
+    const d = snowDepth;
+    if (d > .5) for (let x = 0; x < W; x++) { const hh = Math.max(0, Math.round(d + Math.sin(x / 5) * .8)); rect(x, GROUND - hh, 1, hh, '#F4F8FC'); }
+    for (let i = 0; i < 9; i++) px((i * 13 + 5) % W, GROUND + 4 + (i * 5) % 9, '#C2D2E6');
+    return;
+  }
+  const wet = w === 'rain' || w === 'storm';
+  const base = wet ? '#4C7A5C' : w === 'fog' ? '#7E9A85' : '#5E9A6C';
+  const top = wet ? '#6E9C7A' : w === 'fog' ? '#98B09E' : '#A8D8B0';
+  rect(0, GROUND, W, H - GROUND, base); rect(0, GROUND, W, 1, top); rect(0, GROUND + 1, W, 1, shade(top, -.15));
+  [5, 17, 29, 63, 76, 103].forEach(x => { px(x, GROUND - 1, top); px(x + 2, GROUND - 1, top); });
+  if (!wet && w !== 'fog') [[12,61,'#F2A9B8'],[70,63,'#FFD45C'],[100,62,'#F4F3F0'],[24,66,'#FFD45C']].forEach(([x, y, c]) => { px(x, y, c); px(x, y + 1, '#3F7A50'); });
+  if (wet) {
+    [[14, 62, 12], [66, 65, 16], [98, 60, 8]].forEach(([x, y, w2]) => {
+      rect(x + 2, y, w2 - 4, 1, '#829DBB'); rect(x, y + 1, w2, 2, '#829DBB'); rect(x + 2, y + 3, w2 - 4, 1, '#829DBB');
+      px(x + 3, y + 1, '#A9C9F4'); px(x + 4, y + 1, '#A9C9F4');
+      const ph = Math.floor(now / 300 + x) % 6;
+      if (ph < 3) { px(x + w2 / 2 - ph - 1, y + 2, '#C9DBF2'); px(x + w2 / 2 + ph, y + 2, '#C9DBF2'); }
+    });
+  }
+}
+
+/* ---------- particles ---------- */
+function resetParticles(){
+  const w = S.weather, k = RM ? .4 : 1;
+  drops = []; flakes = []; motes = []; fogs = []; streaks = []; fx = [];
+  if (w !== 'snow') snowDepth = 0;
+  if (w === 'rain' || w === 'storm') {
+    const n = Math.round((w === 'storm' ? 85 : 55) * k);
+    for (let i = 0; i < n; i++) drops.push({x: Math.random() * (W + 30), y: Math.random() * H, v: (w === 'storm' ? 105 : 72) + Math.random() * 30});
+  }
+  if (w === 'snow') for (let i = 0; i < Math.round(45 * k); i++) flakes.push({x: Math.random() * W, y: Math.random() * H, v: 7 + Math.random() * 8, ph: Math.random() * 6, s: Math.random() < .25 ? 2 : 1});
+  if (w === 'clear') for (let i = 0; i < 10; i++) motes.push({x: Math.random() * W, y: 20 + Math.random() * 40, v: 2 + Math.random() * 3, ph: Math.random() * 9});
+  if (w === 'fog') for (let i = 0; i < 6; i++) fogs.push({y: 24 + i * 6, x: Math.random() * W, w: 22 + Math.random() * 30, v: 2 + Math.random() * 4});
+}
+function splash(x, y, n){
+  for (let i = 0; i < n; i++) fx.push({x, y, vx: (Math.random() - .5) * 30, vy: -10 - Math.random() * 18, life: .35, max: .35, col: '#C9DBF2', g: 70});
+}
+function poof(){
+  if (RM) return;
+  for (let i = 0; i < 16; i++) {
+    const a = i / 16 * Math.PI * 2;
+    fx.push({x: CHAR_X + 8, y: FEET - 12, vx: Math.cos(a) * 26, vy: Math.sin(a) * 22, life: .5, max: .5, col: '#F4F3F0'});
+  }
+}
+
+function updateParticles(dt, now){
+  const w = S.weather;
+  const slant = w === 'storm' ? .42 : .22;
+  const dropCol = w === 'storm' ? 'rgba(200,210,240,.75)' : 'rgba(232,241,250,.8)';
+  drops.forEach(d => {
+    d.y += d.v * dt; d.x -= d.v * dt * slant;
+    let hit = d.y > GROUND + 2 + (d.x * 7 % 12);
+    if (umb && d.x >= umb.x0 && d.x <= umb.x1 && d.y >= umb.y0 && d.y <= umb.y1) {
+      hit = true; if (Math.random() < .3) fx.push({x: d.x, y: umb.y0 - 1, vx: (Math.random() - .5) * 20, vy: -12, life: .2, max: .2, col: '#E8F1FA', g: 80});
+    } else if (hit && Math.random() < .25) fx.push({x: d.x, y: d.y, vx: (Math.random() - .5) * 16, vy: -8, life: .18, max: .18, col: '#C9DBF2', g: 60});
+    if (hit || d.x < -4) { d.y = -Math.random() * 12; d.x = Math.random() * (W + 30); }
+    line(d.x, d.y, d.x + slant * 3, d.y - 3, dropCol);
+  });
+  flakes.forEach(f => {
+    f.y += f.v * dt; f.x += Math.sin(now / 700 + f.ph) * .15;
+    if (f.y > GROUND + (f.ph * 3 % 12) - snowDepth) { f.y = -2; f.x = Math.random() * W; snowDepth = Math.min(4, snowDepth + .012); }
+    if (f.x > W) f.x = 0; if (f.x < 0) f.x = W;
+    if (f.s === 2) { px(f.x, f.y, '#FFFFFF'); px(f.x - 1, f.y, '#E8F1FA'); px(f.x + 1, f.y, '#E8F1FA'); px(f.x, f.y - 1, '#E8F1FA'); px(f.x, f.y + 1, '#E8F1FA'); }
+    else px(f.x, f.y, '#FFFFFF');
+  });
+  if (S.time !== 'night') motes.forEach(m => {
+    m.y -= m.v * dt; m.x += Math.sin(now / 900 + m.ph) * .05;
+    if (m.y < 6) { m.y = 50 + Math.random() * 6; m.x = Math.random() * W; }
+    if (Math.floor(now / 300 + m.ph) % 3) px(m.x, m.y, '#FFE9A0');
+  });
+  if (fogs.length) {
+    G.globalAlpha = .4;
+    fogs.forEach(f => {
+      f.x += f.v * dt; if (f.x > W) f.x = -f.w;
+      rect(f.x, f.y, f.w, 3, '#EEF0F2'); rect(f.x + 3, f.y - 1, f.w - 6, 1, '#EEF0F2'); rect(f.x + 3, f.y + 3, f.w - 6, 1, '#EEF0F2');
+    });
+    G.globalAlpha = .18; rect(0, 0, W, H, '#E8ECF0'); G.globalAlpha = 1;
+  }
+  if ((w === 'cloudy' || w === 'storm' || w === 'partly') && !RM && Math.random() < dt * (w === 'storm' ? 1.6 : .5))
+    streaks.push({x: -8, y: 8 + Math.random() * 44, v: 70 + Math.random() * 40});
+  streaks = streaks.filter(s => {
+    s.x += s.v * dt;
+    G.globalAlpha = .55; rect(s.x, s.y, 6, 1, '#F4F3F0'); rect(s.x + 3, s.y - 1, 4, 1, '#F4F3F0'); G.globalAlpha = 1;
+    return s.x < W + 8;
+  });
+  fx = fx.filter(p => {
+    p.life -= dt; if (p.life <= 0) return false;
+    p.x += p.vx * dt; p.y += p.vy * dt; if (p.g) p.vy += p.g * dt;
+    G.globalAlpha = Math.max(0, Math.min(1, p.life / p.max * 1.4));
+    if (p.kind === 'z') { const x = Math.round(p.x), y = Math.round(p.y); rect(x, y, 3, 1, p.col); px(x + 1, y + 1, p.col); rect(x, y + 2, 3, 1, p.col); }
+    else px(p.x, p.y, p.col);
+    G.globalAlpha = 1;
+    return true;
+  });
+}
+
+/* ---------- main render ---------- */
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  G = sceneCtx;
+  const w = S.weather, t = S.time, look = outfit();
+  const sunny = w === 'clear' || w === 'partly';
+
+  let sky = SKY[w];
+  if (t === 'night') sky = w === 'storm' ? ['#08090F','#0D0F1A','#141726','#1D2235'] : SKY_NIGHT;
+  else if (t === 'sunset' && sunny) sky = SKY_SUNSET;
+  else if (t === 'morning' && sunny) sky = SKY_MORNING;
+  drawSky(sky);
+
+  if (t === 'night' && (sunny || w === 'cloudy')) {
+    if (w !== 'cloudy') STARS.forEach((s, i) => { if (Math.floor(now / 400 + s.p) % 7) px(s.x, s.y, i % 5 ? '#B8B1E8' : '#F4F3F0'); });
+    moon(86, 12);
+  } else if (sunny) {
+    if (t === 'morning') sun(20, 30, now); else if (t === 'sunset') sun(22, 42, now); else sun(86, 13, now);
+  }
+
+  const cs = CLOUDS[w];
+  for (let i = 0; i < cs.n; i++) {
+    const span = W + 40, base = i * span / cs.n + (i % 2) * 9;
+    const x = ((base + now / 1000 * cs.v * (1 + i * .15)) % span) - 22;
+    const y = 6 + (i * 7) % 15;
+    const nightC = t === 'night' ? shade(cs.c, -.55) : cs.c, nightS = t === 'night' ? shade(cs.s, -.55) : cs.s;
+    cloudBlob(x, y, i % 2 ? 1 : 1.25, nightC, nightS);
+  }
+
+  ground(now);
+
+  // ambient behavior scheduler (rule-based, tied to the state)
+  if (now > A.nextBlink) { A.blinkUntil = now + 130; A.nextBlink = now + 2600 + Math.random() * 2600; }
+  if (now > A.nextAmbient && !A.act) {
+    if (t === 'morning') doAct('wave');
+    else if (t !== 'night') {
+      if (w === 'rain') doAct('jump');
+      else if (w === 'snow') doAct(Math.random() < .5 ? 'wave' : 'shiver');
+      else if (w === 'clear' || w === 'partly') doAct('wave');
+    }
+    A.nextAmbient = now + 7000 + Math.random() * 5000;
+  }
+  if (w === 'storm' && now > A.nextFlash) {
+    A.flashUntil = now + 260; A.surpriseUntil = now + 1100;
+    const pts = []; let x = 8 + Math.random() * 30 + (Math.random() < .5 ? 58 : 0), y = 10;
+    while (y < GROUND) { pts.push([x, y]); y += 4 + Math.random() * 4; x += (Math.random() - .5) * 8; }
+    pts.push([x, GROUND]); A.bolt = pts;
+    if (Math.random() < .4) say(LINES.storm[0]);
+    A.nextFlash = now + 4500 + Math.random() * 5000;
+  }
+
+  const ch = drawChar(now, look);
+  updateParticles(dt, now);
+
+  // lighting by time of day
+  if (t === 'morning') { G.globalAlpha = .1; rect(0, 0, W, H, '#F2A9B8'); }
+  else if (t === 'sunset') { G.globalAlpha = .16; rect(0, 0, W, H, '#F28C78'); }
+  else if (t === 'night') { G.globalAlpha = .3; rect(0, 24, W, H - 24, '#0D101D'); }
+  G.globalAlpha = 1;
+
+  if (now < A.flashUntil && A.bolt) {
+    const on = Math.floor((A.flashUntil - now) / 65) % 2 === 0;
+    if (on) {
+      G.globalAlpha = .45; rect(0, 0, W, H, '#E8F1FA'); G.globalAlpha = 1;
+      for (let i = 1; i < A.bolt.length; i++) { const [a, b] = A.bolt[i - 1], [c, d] = A.bolt[i]; line(a, b, c, d, '#FFD45C'); line(a + 1, b, c + 1, d, '#FFF1B8'); }
+    }
+  }
+
+  if (fadeStart >= 0) {
+    const p = (now - fadeStart) / 550;
+    if (p >= 1) fadeStart = -1;
+    else { G.globalAlpha = 1 - p; G.drawImage(prev, 0, 0); G.globalAlpha = 1; }
+  }
+
+  positionBubble(ch, look);
+  requestAnimationFrame(frame);
+}
+
+/* ---------- speech bubble ---------- */
+const bubble = document.getElementById('bubble');
+let bubbleTimer = 0;
+function say(text){
+  if (!S.bubbles) return;
+  bubble.textContent = text;
+  bubble.hidden = false;
+  bubble.style.animation = 'none'; void bubble.offsetWidth; bubble.style.animation = '';
+  clearTimeout(bubbleTimer);
+  bubbleTimer = setTimeout(() => { bubble.hidden = true; }, 3200);
+  A.nextBubble = performance.now() + 16000 + Math.random() * 8000;
+}
+function positionBubble(ch, look){
+  const right = look.umbrella ? ch.tx + 28 : ch.tx + 19;
+  bubble.style.left = (right / W * 100) + '%';
+  bubble.style.top = ((ch.ty + 6) / H * 100) + '%';
+  if (S.bubbles && performance.now() > A.nextBubble && bubble.hidden) say(pick(linesFor()));
+}
+function pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+function linesFor(){
+  const w = S.weather, t = S.time;
+  if (t === 'night') return (w === 'clear' || w === 'partly' || w === 'cloudy') ? LINES.night : LINES[w].concat(LINES.night[0]);
+  if (t === 'morning' && Math.random() < .4) return LINES.morning;
+  if (t === 'sunset' && (w === 'clear' || w === 'partly') && Math.random() < .5) return LINES.sunset;
+  return LINES[w];
+}
+
+/* ---------- interaction ---------- */
+const wrap = document.getElementById('sceneWrap');
+function toScene(e){ const r = cv.getBoundingClientRect(); return {x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H}; }
+function onChar(p){ const top = outfit().umbrella ? FEET - 38 : FEET - 27; return p.x >= CHAR_X - 3 && p.x <= CHAR_X + 26 && p.y >= top && p.y <= FEET + 1; }
+function poke(){
+  doAct(Math.random() < .5 ? 'jump' : 'wave');
+  if (RM) doAct('wave');
+  say(pick(linesFor()));
+}
+wrap.addEventListener('click', e => { if (onChar(toScene(e))) poke(); });
+wrap.addEventListener('mousemove', e => wrap.classList.toggle('poke', onChar(toScene(e))));
+wrap.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); poke(); } });
+
+/* ---------- UI ---------- */
+const $ = id => document.getElementById(id);
+const fmtT = c => S.unit === 'F' ? Math.round(c * 9 / 5 + 32) : Math.round(c);
+
+function mkChips(host, items, key, onPick){
+  host.innerHTML = '';
+  items.forEach(([val, label]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.textContent = label; b.dataset.val = val;
+    b.addEventListener('click', () => onPick(val));
+    host.appendChild(b);
+  });
+}
+function mkSwatches(host, colors, names, onPick){
+  host.innerHTML = '';
+  colors.forEach((c, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'sw'; b.style.background = c; b.setAttribute('aria-label', names[i]); b.dataset.val = i;
+    b.addEventListener('click', () => onPick(i));
+    host.appendChild(b);
+  });
+}
+function press(host, val){ host.querySelectorAll('[data-val]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.val === String(val)))); }
+
+function goLive(){ S.live = true; save(); if (LIVE) applyLive(true); else renderUI(); fetchLive(); }
+function pickWeather(v){ if (v === 'live') { goLive(); return; } S.live = false; save(); setWeather(v, true); renderUI(); }
+mkChips($('weatherChips'), [['live', 'Live']].concat(Object.keys(WEATHER).map(k => [k, WEATHER[k].label])), 'weather', pickWeather);
+mkChips($('timeChips'), Object.keys(TIMES).map(k => [k, TIMES[k].label]), 'time', v => { S.live = false; save(); setTime(v); renderUI(); });
+
+async function searchCity(){
+  const q = $('cityInput').value.trim();
+  if (!q) return;
+  $('cityMsg').textContent = 'Searching…';
+  try {
+    const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&format=json&name=' + encodeURIComponent(q));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    const g = d.results && d.results[0];
+    if (!g) { $('cityMsg').textContent = 'No place called “' + q + '” found. Check the spelling and try again.'; return; }
+    S.loc = {name: g.name, country: g.country || '', lat: g.latitude, lon: g.longitude};
+    S.live = true; LIVE = null; liveStatus = 'loading'; save();
+    $('cityMsg').textContent = 'Now showing ' + g.name + (g.country ? ', ' + g.country : '') + '.';
+    $('cityInput').value = '';
+    renderUI(); fetchLive();
+  } catch (e) { $('cityMsg').textContent = 'Can’t search right now. Check your internet connection.'; }
+}
+$('cityBtn').addEventListener('click', searchCity);
+$('cityInput').addEventListener('keydown', e => { if (e.key === 'Enter') searchCity(); });
+mkChips($('unitChips'), [['C', 'Celsius'], ['F', 'Fahrenheit']], 'unit', v => { S.unit = v; save(); renderUI(); });
+mkChips($('hairStyle'), [['short', 'Short'], ['long', 'Long'], ['buns', 'Buns']], 'hs', v => { S.app.hairStyle = v; save(); poof(); renderUI(); });
+mkSwatches($('skinSw'), SKINS, ['Light skin', 'Medium light skin', 'Medium dark skin', 'Dark skin'], i => { S.app.skin = i; save(); poof(); renderUI(); });
+mkSwatches($('hairSw'), HAIRS, ['Brown hair', 'Black hair', 'Blonde hair', 'Red hair', 'Lavender hair'], i => { S.app.hair = i; save(); poof(); renderUI(); });
+mkSwatches($('topSw'), TOPS, ['Mint top', 'Pink top', 'Sky blue top', 'Lavender top', 'Yellow top'], i => { S.app.top = i; save(); poof(); renderUI(); });
+
+$('nameInput').value = S.app.name;
+$('nameInput').addEventListener('input', e => { S.app.name = e.target.value.trim() || 'Pip'; save(); renderUI(); });
+$('autoSwitch').addEventListener('click', () => { S.auto = !S.auto; save(); poof(); renderUI(); say(S.auto ? 'Dressing for the weather!' : 'Wearing my favorite outfit.'); });
+$('bubbleSwitch').addEventListener('click', () => { S.bubbles = !S.bubbles; if (!S.bubbles) bubble.hidden = true; save(); renderUI(); });
+$('detailsBtn').addEventListener('click', () => { S.expanded = !S.expanded; save(); renderUI(); });
+
+function snapshot(){ prev.getContext('2d').clearRect(0, 0, W, H); prev.getContext('2d').drawImage(cv, 0, 0); fadeStart = RM ? -1 : performance.now(); }
+function setWeather(v, talk){
+  if (v === S.weather) return;
+  snapshot(); S.weather = v; save(); resetParticles(); poof();
+  A.nextFlash = performance.now() + 1200; A.nextAmbient = performance.now() + 2500;
+  renderUI();
+  if (talk) say(LINES[v][0]);
+}
+function setTime(v){
+  if (v === S.time) return;
+  snapshot(); S.time = v; save(); renderUI();
+  if (v === 'morning') { doAct('wave'); say(LINES.morning[0]); }
+  else if (v === 'night') say(LINES.night[0]);
+  else if (v === 'sunset' && (S.weather === 'clear' || S.weather === 'partly')) say(LINES.sunset[0]);
+}
+
+function icon(canvas, state, night){
+  const prevG = G; G = canvas.getContext('2d'); G.clearRect(0, 0, 14, 14);
+  const cloud = (col, sh) => { circle(5, 8, 2.6, sh); circle(9, 7, 3.2, sh); circle(5, 7, 2.6, col); circle(9, 6, 3.2, col); rect(3, 8, 9, 2, col); };
+  const sunI = (x, y, r) => { circle(x, y, r, '#FFD45C'); [[0,-1],[0,1],[-1,0],[1,0]].forEach(([a, b]) => px(x + a * (r + 2), y + b * (r + 2), '#FFB84C')); };
+  const moonI = (x, y, r) => { circle(x, y, r, '#F4F3F0'); circle(x + 2, y - 1, r - 1, null); };
+  if (state === 'clear') night ? moonI(7, 7, 4) : sunI(7, 7, 3);
+  else if (state === 'partly') { night ? moonI(5, 5, 3) : sunI(5, 5, 2.4); cloud('#F4F3F0', '#B9C4D6'); }
+  else if (state === 'cloudy') cloud('#C9CFDA', '#949DB0');
+  else if (state === 'rain') { cloud('#9AA7BC', '#6E7C93'); px(4, 12, '#829DBB'); px(7, 13, '#A9C9F4'); px(10, 12, '#829DBB'); }
+  else if (state === 'storm') { cloud('#756C9B', '#544D7C'); px(8, 10, '#FFD45C'); px(7, 11, '#FFD45C'); px(8, 11, '#FFD45C'); px(7, 12, '#FFD45C'); px(6, 13, '#FFD45C'); }
+  else if (state === 'snow') { cloud('#E8EEF5', '#B8C4D4'); px(4, 12, '#FFFFFF'); px(7, 13, '#FFFFFF'); px(10, 12, '#FFFFFF'); }
+  else if (state === 'fog') { rect(2, 4, 10, 1, '#C9CDD3'); rect(3, 7, 9, 1, '#AEB4BC'); rect(2, 10, 10, 1, '#C9CDD3'); }
+  G = prevG;
+}
+
+function renderUI(){
+  const w = WEATHER[S.weather], tm = TIMES[S.time], look = outfit();
+  const L = S.live && LIVE ? LIVE : null;
+  const nightLabel = S.time === 'night' && S.weather === 'clear' ? 'Clear night' : w.label;
+  const unit = S.unit;
+  $('palName').textContent = S.app.name.toUpperCase();
+  $('palLoc').textContent = S.loc.name + (S.loc.country ? ', ' + S.loc.country : '');
+  $('updated').textContent = updatedText();
+  $('temp').textContent = fmtT(L ? L.t : w.t + tm.dt);
+  $('deg').textContent = unit === 'F' ? '°F' : '°C';
+  $('cond').textContent = nightLabel;
+  const windKmh = L ? L.w : w.w;
+  $('feels').textContent = 'Feels like ' + fmtT(L ? L.f : w.f + tm.dt) + '°';
+  $('hilo').textContent = 'High ' + fmtT(L ? L.hi : w.hi) + '°, low ' + fmtT(L ? L.lo : w.lo) + '°';
+  $('hum').textContent = Math.round(L ? L.h : w.h) + '%';
+  $('wind').textContent = unit === 'F' ? Math.round(windKmh * .621) + ' mph' : Math.round(windKmh) + ' km/h';
+  $('uv').textContent = Math.round(L ? L.uv : w.uv * tm.uv);
+  $('mood').textContent = S.time === 'night' ? 'Sleepy' : MOODS[S.weather];
+  $('outfit').innerHTML = (S.auto ? 'Auto outfit: ' : 'Manual outfit: ') + '<b>' + look.desc.join(', ') + '</b>';
+  $('codeVal').textContent = 'weather_code ' + (L ? L.code : w.code);
+  $('codeState').textContent = S.weather;
+  $('detailsBtn').textContent = S.expanded ? 'Hide forecast' : 'Show forecast';
+  $('detailsBtn').setAttribute('aria-expanded', String(S.expanded));
+  $('more').hidden = !S.expanded;
+  $('autoSwitch').setAttribute('aria-checked', String(S.auto));
+  $('bubbleSwitch').setAttribute('aria-checked', String(S.bubbles));
+  press($('weatherChips'), S.live ? 'live' : S.weather); press($('timeChips'), S.time); press($('unitChips'), S.unit);
+  press($('hairStyle'), S.app.hairStyle); press($('skinSw'), S.app.skin); press($('hairSw'), S.app.hair); press($('topSw'), S.app.top);
+
+  wrap.setAttribute('aria-label', S.app.name + ' in ' + nightLabel.toLowerCase() + ' weather, ' + tm.label.toLowerCase() + ', wearing ' + look.desc.join(', ') + '. Press Enter to interact.');
+
+  // hourly strip
+  const hours = $('hours'); hours.innerHTML = '';
+  const offs = [0, 1, 1, 0, -1, -2];
+  const slots = L && L.hours.length
+    ? L.hours.map(h => ({st: codeToState(h.code), label: h.time.slice(11, 16), night: !h.day, t: h.t, p: h.p ?? 0}))
+    : NEXT[S.weather].map((st, i) => { const hr = (tm.hour + i) % 24; return {st, label: String(hr).padStart(2, '0') + ':00', night: hr >= 20 || hr < 6, t: w.t + tm.dt + offs[i], p: WEATHER[st].rain}; });
+  slots.forEach((s, i) => {
+    const st = s.st, night = s.night;
+    const d = document.createElement('div'); d.className = 'hour';
+    const lab = document.createElement('div'); lab.className = 't'; lab.textContent = i === 0 ? 'Now' : s.label;
+    const c = document.createElement('canvas'); c.width = 14; c.height = 14; c.setAttribute('aria-hidden', 'true');
+    icon(c, st, night);
+    const b = document.createElement('b'); b.textContent = fmtT(s.t) + '°';
+    const p = document.createElement('span'); p.className = 'p'; p.textContent = s.p + '%';
+    d.setAttribute('aria-label', lab.textContent + ': ' + WEATHER[st].label + ', ' + b.textContent + ', ' + p.textContent + ' chance of precipitation');
+    d.append(lab, c, b, p); hours.appendChild(d);
+  });
+  const tmw = L ? {label: WEATHER[codeToState(L.tomorrow.code)].label, hi: L.tomorrow.hi, lo: L.tomorrow.lo} : WEATHER[TOMORROW[S.weather]];
+  $('tomorrow').innerHTML = 'Tomorrow: <b>' + tmw.label + '</b>, ' + fmtT(tmw.hi) + '° / ' + fmtT(tmw.lo) + '°';
+}
+
+renderUI();
+resetParticles();
+const t0 = performance.now();
+A.nextAmbient = t0 + 6000; A.nextBlink = t0 + 1500; A.nextFlash = t0 + 2000; A.nextBubble = t0 + 18000;
+doAct('wave');
+setTimeout(() => say('Hi! I’m ' + S.app.name + '.'), 300);
+if (S.live) { if (LIVE) applyLive(false); fetchLive(); }
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
